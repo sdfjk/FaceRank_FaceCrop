@@ -34,6 +34,7 @@ import tensorflow as tf
 import cv2
 import os
 from scipy import misc
+import matplotlib.pyplot as plt
 
 def layer(op):
     """Decorator for composable network layers."""
@@ -949,6 +950,7 @@ def detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor, similarit
 def face_crop(img, minsize, pnet, rnet, onet, threshold, factor, angle, margin, image_size, save_path): #csfu
 
     detect_flag, max_bounding, max_landmark, feature_points = detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor)
+    print(detect_flag)
     crop_flag = 1
 
     if detect_flag == -1:
@@ -958,19 +960,62 @@ def face_crop(img, minsize, pnet, rnet, onet, threshold, factor, angle, margin, 
     margin_size = margin
     img_size = np.asarray(img.shape)[0:2]
     max_boxes = np.squeeze(max_bounding[0:4])
-
-    if (max_bounding[2] - max_bounding[0])/4 < margin_size / 2:
-        margin_size = (max_bounding[2] - max_bounding[0])//4
-
+    # margin_size = 0 #等于0取原始检测框，不向外拓像素
+    # if (max_bounding[2] - max_bounding[0])/4 < margin_size / 2:
+    #     margin_size = (max_bounding[2] - max_bounding[0])//4
+    #
+    # max_boxes_02 = np.zeros(4, dtype=np.int32)
+    # max_boxes_02[0] = np.maximum(max_boxes[0] - margin_size / 2, 0)
+    # max_boxes_02[1] = np.maximum(max_boxes[1] - margin_size / 2, 0)
+    # max_boxes_02[2] = np.minimum(max_boxes[2] + margin_size / 2, img_size[1])
+    # max_boxes_02[3] = np.minimum(max_boxes[3] + margin_size / 2, img_size[0])
+    #
     max_boxes_02 = np.zeros(4, dtype=np.int32)
-    max_boxes_02[0] = np.maximum(max_boxes[0] - margin_size / 2, 0)
-    max_boxes_02[1] = np.maximum(max_boxes[1] - margin_size / 2, 0)
-    max_boxes_02[2] = np.minimum(max_boxes[2] + margin_size / 2, img_size[1])
-    max_boxes_02[3] = np.minimum(max_boxes[3] + margin_size / 2, img_size[0])
+    #检测出的边框坐标越界的情况
+    if(max_boxes[1] < 0):
+        max_boxes[1] = 0
+    if(max_boxes[0] < 0):
+        max_boxes[0] = 0
+    #向外拓1/6
+    h_add = int(round((max_boxes[3] - max_boxes[1]) / 6))
+    w_add = int(round((max_boxes[2] - max_boxes[0]) / 6))
+    #向外拓如果超出边界，补白边再扩
+    if (max_boxes[0] - w_add < 0) or (max_boxes[2] + w_add > img_size[1]):
+        img = cv2.copyMakeBorder(img, 0, 0, w_add, w_add, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        max_boxes[0] += w_add
+        max_boxes[2] += w_add
+    if (max_boxes[1] - h_add < 0) or (max_boxes[3] + h_add > img_size[0]):
+        img = cv2.copyMakeBorder(img, h_add, h_add, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        max_boxes[1] += h_add
+        max_boxes[3] += h_add
+    max_boxes_02[0] = max_boxes[0] - w_add
+    max_boxes_02[1] = max_boxes[1] - h_add
+    max_boxes_02[2] = max_boxes[2] + w_add
+    max_boxes_02[3] = max_boxes[3] + h_add
     cropped = img[max_boxes_02[1]:max_boxes_02[3], max_boxes_02[0]:max_boxes_02[2], :]
-    aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
-    misc.imsave(save_path, aligned)
+    height = cropped.shape[0]
+    width = cropped.shape[1]
+    #长宽不足先补白边，再归一化到[224,224,3]
+    if height > width:
+        border = round((height - width)/2)
+        print(height,width,border)
+        aligned = cv2.copyMakeBorder(cropped, 0, 0, border, border, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        aligned = misc.imresize(aligned, (image_size, image_size), interp='bilinear')
+    else:
+        border = round((width - height)/2)
+        aligned = cv2.copyMakeBorder(cropped, border, border, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        aligned = misc.imresize(aligned, (image_size, image_size), interp='bilinear')
 
+    # plt.subplot(141)
+    # plt.imshow(cropped)
+    # plt.title('cropped')
+    # plt.axis('off')
+    # plt.subplot(142)
+    # plt.imshow(aligned)
+    # plt.title('aligned')
+    # plt.axis('off')
+    # plt.show()
+    misc.imsave(save_path, aligned)
     return crop_flag, aligned
 
 def detect_nomal_face(img, minsize, pnet, rnet, onet, threshold, factor, angle, margin, image_size, save_path): #csfu

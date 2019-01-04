@@ -45,11 +45,11 @@ from sklearn.externals import joblib
 # def main(args):
 def main():
 
-    detect_image_folder = "./TestImg/"
-    align_image_save_folder = "./TestImg_save/"
+    detect_image_folder = "E:/dataset/20190104 dataset/source_images/K_12356_20180925/" #"./TestImg/"#"E:/dataset/SCUT-FBP5500_v2/Images/"# # #
+    align_image_save_folder = "E:/dataset/20190104 dataset/K_12356_20180925_cropped20190104/"#"./TestImg_save/"#"E:/dataset/SCUT-FBP5500_v2/Images_crop_SCUT5500/"# #  #
     detect_error_folder = "./TestImg_error/"
 
-    image_size = 160
+    image_size = 224 #160
     margin = 44
     gpu_memory_fraction = 1.0
 
@@ -60,7 +60,7 @@ def load_and_align_data(image_folder, save_folder, error_folder, image_size, mar
     # minsize = 20  # minimum size of face
     minsize = 60
     # threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
-    threshold = [0.5, 0.7, 0.9]
+    threshold = [0.5, 0.7, 0.9] #[0.5, 0.7, 0.9]
     factor = 0.709  # scale factor
 
     print('Creating networks and loading parameters')
@@ -132,9 +132,25 @@ def load_and_align_data(image_folder, save_folder, error_folder, image_size, mar
             face_height = max_boxes[3] - max_boxes[1]
             eye_face_rate = eye_distance / face_width
 
-            img_rote = ndimage.rotate(img_src, angle)
+            img_rote = ndimage.rotate(img_src, angle, cval=255)
             crop_flag, crop_face = detect_face.face_crop(img_rote, minsize, pnet, rnet, onet, threshold, factor,
                                                          angle, margin, image_size, save_path)
+
+
+            # plt.subplot(221)
+            # plt.imshow(img_src)
+            # plt.title('img_src')
+            # plt.axis('off')
+            # plt.subplot(222)
+            # plt.imshow(img_rote)
+            # plt.title('img_rote')
+            # plt.axis('off')
+            # plt.subplot(223)
+            # plt.imshow(crop_face)
+            # plt.title('crop_face')
+            # plt.axis('off')
+            # plt.show()
+
             if crop_flag==-1:
                 rote_flag = 1
 
