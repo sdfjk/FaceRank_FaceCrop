@@ -45,9 +45,9 @@ from sklearn.externals import joblib
 # def main(args):
 def main():
 
-    detect_image_folder = "E:/dataset/20190104 dataset/source_images/K_12356_20180925/" #"./TestImg/"#"E:/dataset/SCUT-FBP5500_v2/Images/"# # #
-    align_image_save_folder = "E:/dataset/20190104 dataset/K_12356_20180925_cropped20190104/"#"./TestImg_save/"#"E:/dataset/SCUT-FBP5500_v2/Images_crop_SCUT5500/"# #  #
-    detect_error_folder = "./TestImg_error/"
+    detect_image_folder = "E:/dataset/live_img_20190114/"#"E:/dataset/20190104 dataset/source_images/K_12356_20180925/" #'./TestImg/'#
+    align_image_save_folder = "E:/dataset/live_img_20190114_crop/" #"./TestImg_save/"#"E:/dataset/20190104 dataset/K_12356_20180925_cropped20190104/"
+    detect_error_folder = "E:/dataset/live_img_20190114_crop_error/" #"./TestImg_error/"
 
     image_size = 224 #160
     margin = 44
@@ -77,14 +77,26 @@ def load_and_align_data(image_folder, save_folder, error_folder, image_size, mar
     rote_th = 18
     eye_face_rate_th = 0.39
     # similarity_th = 0.96
-    similarity_th = 0.945
+    similarity_th = 0.97 #0.945
 
     img_total_cnt = 0
     img_read_error = 0
     img_detect_error = 0
     img_detect_success = 0
 
-    pathDir = os.listdir(image_folder)
+    subfolder = os.listdir(image_folder)
+    pathDir = []
+    for i in subfolder:
+        subpath = os.path.join('%s%s' % (image_folder, i))
+        if os.path.isdir(subpath):
+            pathDir.extend([i + '/' + j for j in os.listdir(subpath)])
+            save_subholder = os.path.join('%s%s' % (save_folder, i))
+            if not os.path.exists(save_subholder):
+                os.makedirs(save_subholder)
+        elif '.jpg' in subpath:
+            pathDir.append(i)
+    print(len(pathDir))
+
     for allDir in pathDir:
         image_path = os.path.join('%s%s' % (image_folder, allDir))
         save_path = os.path.join('%s%s' % (save_folder, allDir))
@@ -99,21 +111,24 @@ def load_and_align_data(image_folder, save_folder, error_folder, image_size, mar
             print("img_detect_success:   %d" % img_detect_success)
 
         try:
-            img_src = misc.imread(os.path.expanduser(image_path), mode='RGB')
+            # img_src = misc.imread(os.path.expanduser(image_path), mode='RGB')
+            img_src = accertain_face(image_path)
             img_size = np.asarray(img_src.shape)[0:2]
             img_h = img_src.shape[0]
             img_w = img_src.shape[1]
+
         except:
             img_read_error += 1
             print("read image error, image_path:  %s" % (image_path))
             continue
 
-        detect_flag, max_bounding, max_landmark, feature_points = detect_face.detect_max_face(img_src, minsize, pnet, rnet, onet, threshold, factor)
+        detect_flag, max_bounding, max_landmark, feature_points = detect_face.detect_max_face(img_src, minsize, pnet, rnet, onet, threshold, factor, similarity_th)
 
         rote_flag = 255
         if detect_flag == -1:
-            # print("--- detect face error, path is %s"%image_path)
+            print("--- detect face error, path is %s"%image_path)
             # continue
+            misc.imsave(os.path.join(error_folder, image_path.split('/')[-1]), img_src)
             rote_flag = 1
         else:
             left_eye = feature_points["left_eye"]
@@ -171,6 +186,27 @@ def load_and_align_data(image_folder, save_folder, error_folder, image_size, mar
 
     return 0
 
+def accertain_face(image_path):
+    """
+    通过边缘检测方法检测图像中间部分是否有直线段，确定是否正在才艺PK
+    :图片路径 image_path:
+    : 50 150分别为检测的高低阈值，3是滤波器核的大小
+    :存在直线段，则返回左边半部分的图像输入到后续网络
+    """
+    img = misc.imread(os.path.expanduser(image_path), mode='RGB')#
+    height = img.shape[0]  # 高度
+    width = img.shape[1]  # 宽度
+    cut_img = img[:, int(width/2 - 2):int(width/2 + 2)]
+    gray = cv2.cvtColor(cut_img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 118)
+    minLineLength = 30
+    maxLineGap = 10
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 80, minLineLength, maxLineGap)
+    if lines is not None:
+        return img[:, :320]
+    else:
+        return img
 
 if __name__ == '__main__':
     main()

@@ -870,7 +870,10 @@ def detect_max_face_v1(img, minsize, pnet, rnet, onet, threshold, factor, simila
     return detect_flag, max_bounding, max_landmark, feature_points
 
 def detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor, similarity_th = 0.9): #csfu
-
+    """
+    检测人脸数目大于1的则丢弃
+    :param similarity_th: 检测为人脸的概率
+    """
     bounding_boxes, landmark = detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
     # print(landmark.shape)
     # print(type(landmark))
@@ -901,20 +904,34 @@ def detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor, similarit
             print("face similarity < 0.9")
             detect_flag = -1
             return detect_flag, None, None, None
+    # else:
+    #     max_similarity = similarity_th
+    #     for k in range(box_num):
+    #         box_width = bounding_boxes[k, 2] - bounding_boxes[k, 0]
+    #         box_height = bounding_boxes[k, 3] - bounding_boxes[k, 1]
+    #         similarity = bounding_boxes[k, 4]
+    #         # if box_width * box_height > max_box_area:
+    #         if box_width * box_height > max_box_area and similarity > max_similarity:
+    #             choose_flag = 1
+    #             max_box_area = box_width * box_height
+    #             max_bounding = bounding_boxes[k, :]
+    #             max_similarity = similarity
+    #             choose_box = k
+    #             max_landmark[:] = landmark[:, k]
+    # elif box_num == 2:
+    #     for k in range(box_num):
+    #         similarity = bounding_boxes[k, 4]
+    #         print(landmark[0, k])
+    #         print(img.shape[1] / 2.)
+    #         print(similarity)
+    #         if similarity > similarity_th and (landmark[0, k] < img.shape[1] / 2.):#检测到两人，取左眼在图片左边的
+    #                 choose_flag = 1
+    #                 max_bounding = bounding_boxes[k, :]
+    #                 max_landmark[:] = landmark[:, k]
     else:
-        max_similarity = 0
-        for k in range(box_num):
-            box_width = bounding_boxes[k, 2] - bounding_boxes[k, 0]
-            box_height = bounding_boxes[k, 3] - bounding_boxes[k, 1]
-            similarity = bounding_boxes[k, 4]
-            # if box_width * box_height > max_box_area:
-            if box_width * box_height > max_box_area and similarity > similarity_th:
-                choose_flag = 1
-                max_box_area = box_width * box_height
-                max_bounding = bounding_boxes[k, :]
-                max_similarity = similarity
-                choose_box = k
-                max_landmark[:] = landmark[:, k]
+        detect_flag = -1
+        print('more than 1 face')
+        return detect_flag, None, None, None
 
     if choose_flag == 255:
         detect_flag = -1
@@ -950,7 +967,7 @@ def detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor, similarit
 def face_crop(img, minsize, pnet, rnet, onet, threshold, factor, angle, margin, image_size, save_path): #csfu
 
     detect_flag, max_bounding, max_landmark, feature_points = detect_max_face(img, minsize, pnet, rnet, onet, threshold, factor)
-    print(detect_flag)
+    # print(detect_flag)
     crop_flag = 1
 
     if detect_flag == -1:
